@@ -36,7 +36,7 @@
 
 <textarea id="code">print("Hello world!")</textarea>
 <br>
-<button onclick="runCode()">Run</button>
+<button id="runBtn" onclick="runCode()" disabled>Run</button>
 
 <h3>Output:</h3>
 <pre id="output"></pre>
@@ -44,13 +44,13 @@
 <script>
 let pyodide;
 
-// Load Pyodide
+// Load Pyodide and setup environment
 async function loadPyodideAndPackages() {
   pyodide = await loadPyodide();
   console.log("Pyodide loaded!");
 
-  // Setup output streaming and restricted imports
-  pyodide.runPython(`
+  // Use async for setup to prevent blocking
+  await pyodide.runPythonAsync(`
 import sys
 import builtins
 import js
@@ -83,7 +83,12 @@ def restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
 
 builtins.__import__ = restricted_import
 `);
+
+  // Enable Run button after setup is complete
+  document.getElementById("runBtn").disabled = false;
 }
+
+loadPyodideAndPackages();
 
 // JS function to update output live
 window.update_output = (text) => {
@@ -92,10 +97,16 @@ window.update_output = (text) => {
   output.scrollTop = output.scrollHeight;
 };
 
+// Run code safely
 async function runCode() {
-  const code = document.getElementById("code").value;
   const output = document.getElementById("output");
+  if (!pyodide) {
+    output.textContent = "Python environment is still loading. Please wait...";
+    return;
+  }
+
   output.textContent = ""; // clear previous output
+  const code = document.getElementById("code").value;
 
   try {
     await pyodide.runPythonAsync(code);
