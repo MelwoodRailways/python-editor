@@ -27,13 +27,24 @@ async function loadPyodideAndPackages() {
 }
 loadPyodideAndPackages();
 
+
 async function runCode() {
   let code = document.getElementById("code").value;
   let output = document.getElementById("output");
 
   try {
-    let result = await pyodide.runPythonAsync(code);
-    output.textContent = result ?? "";
+    // Redirect Python stdout to JS
+    pyodide.runPython(`
+    import sys
+    from io import StringIO
+    sys.stdout = StringIO()
+    `);
+
+    await pyodide.runPythonAsync(code);
+
+    let stdout = pyodide.runPython("sys.stdout.getvalue()");
+    output.textContent = stdout;
+
   } catch (err) {
     output.textContent = err;
   }
