@@ -31,7 +31,7 @@ async function loadPyodideAndPackages() {
   pyodide = await loadPyodide();
   console.log("Pyodide loaded!");
 
-  // Async setup for stdout streaming and restricted imports
+  // Setup stdout streaming and restricted imports
   await pyodide.runPythonAsync(`
 import sys
 import builtins
@@ -43,18 +43,20 @@ ALLOWED_MODULES = {
     "itertools", "functools", "collections", "re"
 }
 
-# Stream stdout to JS
-class Stream:
-    def __init__(self):
-        self.content = ""
-    def write(self, s):
-        self.content += s
-        js.update_output(self.content)
-    def flush(self):
-        pass
+# Function to create a fresh stdout/stderr stream
+def reset_streams():
+    class Stream:
+        def __init__(self):
+            self.content = ""
+        def write(self, s):
+            self.content += s
+            js.update_output(self.content)
+        def flush(self):
+            pass
+    sys.stdout = Stream()
+    sys.stderr = Stream()
 
-sys.stdout = Stream()
-sys.stderr = Stream()
+reset_streams()
 
 # Block imports not in whitelist
 _real_import = builtins.__import__
@@ -69,8 +71,6 @@ builtins.__import__ = restricted_import
   // Enable Run button
   document.getElementById("runBtn").disabled = false;
 }
-
-loadPyodideAndPackages();
 
 // JS function to stream output
 window.update_output = (text) => {
@@ -87,7 +87,10 @@ async function runCode() {
     return;
   }
 
-  output.textContent = ""; // clear previous output
+  // Clear previous output and reset Python stdout/stderr
+  output.textContent = "";
+  await pyodide.runPythonAsync("reset_streams()");
+
   const code = document.getElementById("code").value;
 
   try {
@@ -96,6 +99,8 @@ async function runCode() {
     output.textContent += "\n" + err;
   }
 }
+
+loadPyodideAndPackages();
 </script>
 
 </body>
