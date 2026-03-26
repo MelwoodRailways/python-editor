@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>School Python</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+</head>
+<body>
+
+<h2>Python Editor</h2>
+
+<textarea id="code" rows="15" cols="60">
+print("Hello from school!")
+</textarea>
+<br><br>
+
+<button onclick="runCode()">Run</button>
+
+<h3>Output:</h3>
+<pre id="output"></pre>
+
+<script>
+let pyodide;
+
+async function loadPyodideAndPackages() {
+  pyodide = await loadPyodide();
+}
+loadPyodideAndPackages();
+
+async function runCode() {
+  let code = document.getElementById("code").value;
+  let output = document.getElementById("output");
+
+  try {
+    let result = await pyodide.runPythonAsync(code);
+    output.textContent = result ?? "";
+  } catch (err) {
+    output.textContent = err;
+  }
+}
+</script>
+
+</body>
+</html>
