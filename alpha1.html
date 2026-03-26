@@ -144,6 +144,16 @@ codeArea.addEventListener("keydown", function(e) {
     this.selectionStart = this.selectionEnd = start + 1 + indent.length;
   }
 });
+  window.addEventListener("beforeunload", function (e) {
+    const warningMessage = "⚠️ Your progress will NOT be saved! Make sure to copy your code elsewhere.";
+    
+    // Standard way to trigger the browser warning
+    e.preventDefault();
+    e.returnValue = warningMessage;
+
+    // For older browsers
+    return warningMessage;
+});
 </script>
 
 </body>
