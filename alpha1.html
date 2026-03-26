@@ -30,6 +30,7 @@ let pyodide;
 async function loadPyodideAndPackages() {
   pyodide = await loadPyodide();
   console.log("Pyodide loaded!");
+  pyodide.globals.set("input", (msg) => prompt(msg));
 
   // Setup stdout streaming, restricted imports, and input()
   await pyodide.runPythonAsync(`
