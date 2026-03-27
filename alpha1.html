@@ -10,7 +10,7 @@
       --bg-color: #ffffff;
       --text-color: #24292e;
       --keyword: #d73a49;
-      --string: #032f62; 
+      --string: #e67e22; 
       --comment: #6a737d;
       --builtin: #005cc5;
       --line-num-bg: #f8f8f8;
@@ -20,8 +20,7 @@
     }
 
     body { font-family: -apple-system, sans-serif; margin: 20px; background: #eee; }
-    h2 { margin-top: 0; font-weight: 600; }
-
+    
     .editor-container {
       display: flex; position: relative; width: 100%; height: 500px;
       border: 1px solid #ddd; border-radius: 6px; background: var(--bg-color);
@@ -47,23 +46,20 @@
     #code { z-index: 2; background: transparent; color: transparent; caret-color: #333; resize: none; }
     #highlighter { z-index: 1; color: var(--text-color); pointer-events: none; }
 
-    /* Clean Syntax Coloring */
-    .hl-kw { color: var(--keyword); font-weight: bold; }
-    .hl-st { color: var(--string); }
-    .hl-cm { color: var(--comment); font-style: italic; }
-    .hl-bi { color: var(--builtin); }
+    /* Syntax Colors */
+    .c-kw { color: var(--keyword); font-weight: bold; }
+    .c-st { color: var(--string); }
+    .c-cm { color: var(--comment); font-style: italic; }
+    .c-bi { color: var(--builtin); }
 
     .controls { margin: 15px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    button { padding: 8px 16px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 14px; font-weight: 500; transition: 0.1s; }
-    button:active { transform: translateY(1px); }
-    
+    button { padding: 8px 16px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 14px; font-weight: 500; }
     #runBtn { background: var(--accent-green); color: white; border-color: #218838; }
     #stopBtn { color: var(--accent-red); }
     
     pre#output { 
       background: #1e1e1e; color: #f0f0f0; padding: 15px; border-radius: 6px; 
-      min-height: 150px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace;
-      border: 1px solid #333; line-height: 1.4;
+      min-height: 150px; max-height: 300px; overflow-y: auto; font-family: monospace;
     }
   </style>
 </head>
@@ -75,15 +71,15 @@
   <div id="line-numbers"></div>
   <div class="editor-wrapper">
     <div id="highlighter"></div>
-    <textarea id="code" spellcheck="false" wrap="off"># Try auto-close: type (test) or "hello"
-import math
+    <textarea id="code" spellcheck="false" wrap="off">import math
 
-def circle_stats(r):
-  area = math.pi * (r ** 2)
-  return area
+# Keywords are red, Built-ins are blue
+# Strings are now orange!
+def hello():
+  msg = "Success!"
+  print(msg)
 
-radius = 5
-print(f"Area is: {circle_stats(radius)}")</textarea>
+hello()</textarea>
   </div>
 </div>
 
@@ -99,7 +95,7 @@ print(f"Area is: {circle_stats(radius)}")</textarea>
 </div>
 
 <h3>Output:</h3>
-<pre id="output">Initializing Python...</pre>
+<pre id="output">Initializing...</pre>
 
 <script>
 let pyodide;
@@ -109,20 +105,17 @@ const lineNumbers = document.getElementById("line-numbers");
 const output = document.getElementById("output");
 const runBtn = document.getElementById("runBtn");
 
-// --- 1. KEYBOARD LOGIC (AUTO-PAIR + OVERTYPE) ---
+// --- 1. KEYBOARD (AUTO-CLOSE + INDENT) ---
 codeArea.addEventListener('keydown', function(e) {
   const s = this.selectionStart, e_idx = this.selectionEnd, v = this.value;
   const pairs = { '(': ')', '"': '"', "'": "'", '[': ']', '{': '}' };
   const closingChars = [')', '"', "'", ']', '}'];
 
-  // Overtyping (Auto-close)
   if (closingChars.includes(e.key) && v[s] === e.key && s === e_idx) {
     e.preventDefault();
     this.selectionStart = this.selectionEnd = s + 1;
     return;
   }
-
-  // Auto-pairing
   if (pairs[e.key]) {
     e.preventDefault();
     this.value = v.substring(0, s) + e.key + pairs[e.key] + v.substring(e_idx);
@@ -130,21 +123,18 @@ codeArea.addEventListener('keydown', function(e) {
     updateEditor();
     return;
   }
-
   if (e.key === 'Tab') {
     e.preventDefault();
     this.value = v.substring(0, s) + "  " + v.substring(e_idx);
     this.selectionStart = this.selectionEnd = s + 2;
     updateEditor();
   }
-
   if (e.key === 'Enter') {
     e.preventDefault();
     const lineStart = v.lastIndexOf("\n", s - 1) + 1;
     const currentLine = v.substring(lineStart, s);
     let indent = currentLine.match(/^\s*/)[0];
     if (currentLine.trimEnd().endsWith(":")) indent += "  ";
-    
     const ins = "\n" + indent;
     this.value = v.substring(0, s) + ins + v.substring(e_idx);
     this.selectionStart = this.selectionEnd = s + ins.length;
@@ -152,16 +142,16 @@ codeArea.addEventListener('keydown', function(e) {
   }
 });
 
-// --- 2. HIGHLIGHTER & LINE SYNC ---
+// --- 2. HIGHLIGHTER (ORANGE STRINGS) ---
 function updateEditor() {
   const val = codeArea.value;
   let html = val.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   
   const rules = [
-    { r: /#.*$/gm, c: 'hl-cm' },
-    { r: /(['"])(?:(?=(\\?))\2.)*?\1/g, c: 'hl-st' },
-    { r: /\b(def|class|if|else|elif|for|while|return|import|from|try|except|as|with|in|is|not|and|or|lambda|pass|break|continue)\b/g, c: 'hl-kw' },
-    { r: /\b(print|input|len|range|str|int|float|list|dict|set|type|sum|max|min)\b/g, c: 'hl-bi' }
+    { r: /#.*$/gm, c: 'c-cm' },
+    { r: /(['"])(?:(?=(\\?))\2.)*?\1/g, c: 'c-st' },
+    { r: /\b(def|class|if|else|elif|for|while|return|import|from|try|except|as|with|in|is|not|and|or|lambda|pass|break|continue)\b/g, c: 'c-kw' },
+    { r: /\b(print|input|len|range|str|int|float|list|dict|set|type|sum|max|min)\b/g, c: 'c-bi' }
   ];
 
   rules.forEach(rule => {
@@ -170,7 +160,6 @@ function updateEditor() {
 
   highlighter.innerHTML = html + "\n";
   
-  // Line Numbers (Fills screen)
   const lines = val.split('\n');
   const count = Math.max(lines.length, 25);
   let nums = '';
@@ -178,8 +167,7 @@ function updateEditor() {
     nums += (i > lines.length ? `<span style="opacity:0.15">${i}</span>\n` : `${i}\n`);
   }
   lineNumbers.innerHTML = nums;
-
-  localStorage.setItem('pyStudent_A48', val);
+  localStorage.setItem('pyStudent_A50', val);
 }
 
 codeArea.addEventListener('input', updateEditor);
@@ -188,15 +176,12 @@ codeArea.addEventListener('scroll', () => {
   highlighter.scrollLeft = codeArea.scrollLeft;
 });
 
-// --- 3. ENGINE & SECURITY ---
+// --- 3. ENGINE ---
 async function setupPyodide() {
   runBtn.disabled = true;
   try {
     pyodide = await loadPyodide();
-    window.update_out = (t) => { 
-      output.textContent += t; 
-      output.scrollTop = output.scrollHeight; 
-    };
+    window.update_out = (t) => { output.textContent += t; output.scrollTop = output.scrollHeight; };
     await pyodide.runPythonAsync(`
 import sys, builtins, js, importlib
 def reset_streams():
@@ -229,9 +214,9 @@ async function runCode() {
   catch (e) { output.textContent += "\n" + e; }
 }
 
-function resetEngine() { if(confirm("Restart Engine?")) setupPyodide(); }
+function resetEngine() { if(confirm("Restart?")) setupPyodide(); }
 function copyCode() { navigator.clipboard.writeText(codeArea.value); alert("Copied!"); }
-function clearEditor() { if(confirm("Clear Code?")) { codeArea.value = ""; updateEditor(); } }
+function clearEditor() { if(confirm("Clear?")) { codeArea.value = ""; updateEditor(); } }
 function downloadCode() {
   const blob = new Blob([codeArea.value], {type:'text/plain'});
   const a = document.createElement('a');
@@ -246,7 +231,7 @@ function handleFileUpload(e) {
 }
 
 window.onload = () => {
-  const s = localStorage.getItem('pyStudent_A48');
+  const s = localStorage.getItem('pyStudent_A50');
   if (s) codeArea.value = s;
   updateEditor();
   setupPyodide();
