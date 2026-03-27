@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Python Alpha 2 - Editor</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --editor-bg: #f8f9fa;
+      --text-color: #24292e;
+      --keyword: #d73a49;
+      --string: #032f62;
+      --comment: #6a737d;
+      --builtin: #005cc5;
+      --func: #6f42c1;
+    }
+
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; margin: 20px; background: #eee; }
+    h2 { margin-bottom: 10px; color: #333; }
+
+    /* Container for the overlapping layers */
+    .editor-wrapper {
+      position: relative;
+      width: 100%;
+      height: 400px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: var(--bg-color);
+      overflow: hidden;
+    }
+
+    /* Shared styles to keep text perfectly aligned */
+    #code, #highlighter {
+      margin: 0;
+      padding: 15px;
+      font-family: 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      outline: none;
+      border: none;
+    }
+
+    /* The Textarea: Invisible text, visible cursor */
+    #code {
+      z-index: 2;
+      background: transparent;
+      color: transparent;
+      caret-color: black;
+      resize: none;
+    }
+
+    /* The Visual Div: Shows the colors */
+    #highlighter {
+      z-index: 1;
+      color: var(--text-color);
+      overflow-y: auto;
+      pointer-events: none; /* Let clicks pass through to textarea */
+    }
+
+    /* Syntax Highlighting Colors */
+    .hl-keyword { color: var(--keyword); font-weight: bold; }
+    .hl-string  { color: var(--string); }
+    .hl-comment { color: var(--comment); font-style: italic; }
+    .hl-builtin { color: var(--builtin); }
+    .hl-func    { color: var(--func); }
+
+    /* Controls */
+    .controls { margin-top: 15px; display: flex; gap: 10px; }
+    button { 
+      padding: 8px 20px; 
+      font-size: 14px; 
+      cursor: pointer; 
+      border-radius: 4px; 
+      border: 1px solid #ccc;
+      background: white;
+    }
+    #runBtn { background: #28a745; color: white; border-color: #218838; font-weight: bold; }
+    #runBtn:disabled { background: #94d3a2; cursor: wait; }
+    
+    pre#output { 
+      background: #1e1e1e; 
+      color: #00ff00; 
+      padding: 15px; 
+      border-radius: 6px; 
+      min-height: 100px; 
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Python Editor <small style="font-size: 0.6em; color: gray;">(Alpha 2)</small></h2>
+
+<div class="editor-wrapper">
+  <div id="highlighter" aria-hidden="true"></div>
+  <textarea id="code" spellcheck="false" placeholder="Type Python code here...">print("Hello world!")</textarea>
+</div>
+
+<div class="controls">
+  <button id="runBtn" onclick="runCode()" disabled>Loading Python...</button>
+  <button onclick="downloadCode()">Download .py</button>
+  <button onclick="clearEditor()" style="color: red;">Clear</button>
+</div>
+
+<h3>Console Output:</h3>
+<pre id="output">Waiting for engine...</pre>
+
+<script>
+let pyodide;
+const codeArea = document.getElementById("code");
+const highlighter = document.getElementById("highlighter");
+const output = document.getElementById("output");
+const runBtn = document.getElementById("runBtn");
+
+// --- 1. SYNTAX HIGHLIGHTING ENGINE ---
+function applyHighlight(text) {
+    // Escape HTML to prevent XSS
+    let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    // Order matters: Strings -> Keywords -> Builtins -> Comments
+    html = html.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, '<span class="hl-string">$&</span>');
+    
+    const keywords = /\b(def|class|if|else|elif|for|while|return|import|from|try|except|as|with|in|is|not|and|or|lambda|pass|break|continue)\b/g;
+    html = html.replace(keywords, '<span class="hl-keyword">$1</span>');
+
+    const builtins = /\b(print|input|len|range|str|int|float|list|dict|set|type|help|sum|max|min)\b/g;
+    html = html.replace(builtins, '<span class="hl-builtin">$1</span>');
+
+    html = html.replace(/#.*$/gm, '<span class="hl-comment">$&</span>');
+
+    return html;
+}
+
+function syncEditor() {
+    highlighter.innerHTML = applyHighlight(codeArea.value) + "\n";
+    localStorage.setItem('pyEditor_save', codeArea.value);
+}
+
+codeArea.addEventListener('input', syncEditor);
+codeArea.addEventListener('scroll', () => {
+    highlighter.scrollTop = codeArea.scrollTop;
+});
+
+// --- 2. IDE FEATURES (Auto-close, Tabs, Indent) ---
+const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
+
+codeArea.addEventListener('keydown', function(e) {
+    const start = this.selectionStart;
+    const end = this.selectionEnd;
+    const val = this.value;
+
+    // Auto-close brackets/quotes
+    if (pairs[e.key]) {
+        e.preventDefault();
+        this.value = val.substring(0, start) + e.key + pairs[e.key] + val.substring(end);
+        this.selectionStart = this.selectionEnd = start + 1;
+        syncEditor();
+    }
+
+    // Tab Key (4 spaces)
+    if (e.key === 'Tab') {
+        e.preventDefault();
+        this.value = val.substring(0, start) + "    " + val.substring(end);
+        this.selectionStart = this.selectionEnd = start + 4;
+        syncEditor();
+    }
+
+    // Auto-indent on Enter
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const lineStart = val.lastIndexOf("\n", start - 1) + 1;
+        const currentLine = val.substring(lineStart, start);
+        let indent = currentLine.match(/^\s*/)[0];
+        if (currentLine.trimEnd().endsWith(":")) indent += "    ";
+        
+        this.value = val.substring(0, start) + "\n" + indent + val.substring(end);
+        this.selectionStart = this.selectionEnd = start + 1 + indent.length;
+        syncEditor();
+    }
+});
+
+// --- 3. UTILITIES ---
+function downloadCode() {
+    const blob = new Blob([codeArea.value], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'script.py';
+    a.click();
+}
+
+function clearEditor() {
+    if(confirm("Clear all code?")) {
+        codeArea.value = "";
+        syncEditor();
+    }
+}
+
+// --- 4. PYODIDE LOGIC ---
+async function setupPyodide() {
+  pyodide = await loadPyodide();
+  
+  // Custom Stdout/Stderr streaming to our <pre> tag
+  window.update_output = (text) => {
+    output.textContent += text;
+    output.scrollTop = output.scrollHeight;
+  };
+
+  await pyodide.runPythonAsync(`
+import sys, builtins, js
+
+def reset_streams():
+    class Stream:
+        def write(self, s): js.update_output(s)
+        def flush(self): pass
+    sys.stdout = sys.stderr = Stream()
+
+reset_streams()
+
+# Your restricted import logic
+ALLOWED = {"math", "time", "sys", "random", "itertools", "re", "statistics"}
+_real_import = builtins.__import__
+def restricted_import(name, *args, **kwargs):
+    if name not in ALLOWED:
+        raise ImportError(f"Import of '{name}' is blocked.")
+    return _real_import(name, *args, **kwargs)
+builtins.__import__ = restricted_import
+
+# Browser input
+builtins.input = lambda msg="": js.prompt(msg)
+  `);
+
+  runBtn.disabled = false;
+  runBtn.textContent = "Run Code";
+  output.textContent = "Python 3.11 ready.\n";
+}
+
+async function runCode() {
+  output.textContent = "";
+  await pyodide.runPythonAsync("reset_streams()");
+  try {
+    await pyodide.runPythonAsync(codeArea.value);
+  } catch (err) {
+    output.textContent += "\n" + err;
+  }
+}
+
+// Load previous session
+window.onload = () => {
+    const saved = localStorage.getItem('pyEditor_save');
+    if (saved) codeArea.value = saved;
+    syncEditor();
+    setupPyodide();
+};
+</script>
+
+</body>
+</html>
