@@ -18,59 +18,29 @@
       --accent-green: #28a745;
       --accent-red: #cb2431;
       --accent-blue: #0366d6;
-      --accent-purple: #6f42c1;
     }
 
-    body { font-family: -apple-system, system-ui, sans-serif; margin: 20px; background: #eee; color: #333; transition: 0.3s; }
-    h2 { margin-top: 0; font-weight: 600; }
-
-    /* The Main Container */
+    body { font-family: -apple-system, system-ui, sans-serif; margin: 20px; background: #eee; color: #333; }
+    
     .editor-container {
-      display: flex;
-      position: relative;
-      width: 100%;
-      height: 450px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      background: var(--bg-color);
-      overflow: hidden;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-      transition: all 0.3s ease;
-    }
-
-    /* Visual Mode State: Hides the editor */
-    body.visual-mode .editor-container {
-      height: 0;
-      margin: 0;
-      border: none;
-      opacity: 0;
-      pointer-events: none;
+      display: flex; position: relative; width: 100%; height: 400px;
+      border: 1px solid #ddd; border-radius: 6px; background: var(--bg-color);
+      overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
 
     #line-numbers {
-      width: 45px;
-      padding: 15px 5px;
-      background: var(--line-num-bg);
-      color: var(--line-num-text);
-      font-family: 'Fira Code', 'Courier New', monospace;
-      font-size: 14px;
-      line-height: 1.6;
-      text-align: right;
-      user-select: none;
-      border-right: 1px solid #ddd;
-      overflow: hidden;
+      width: 45px; padding: 15px 5px; background: var(--line-num-bg);
+      color: var(--line-num-text); font-family: 'Fira Code', monospace;
+      font-size: 14px; line-height: 1.6; text-align: right; border-right: 1px solid #ddd;
     }
 
     .editor-wrapper { position: relative; flex-grow: 1; height: 100%; }
 
     #code, #highlighter {
-      margin: 0; padding: 15px;
-      font-family: 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
-      font-size: 14px; line-height: 1.6;
-      white-space: pre; word-wrap: normal;
-      overflow-x: auto; position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      box-sizing: border-box; outline: none; border: none;
+      margin: 0; padding: 15px; font-family: 'Fira Code', monospace;
+      font-size: 14px; line-height: 1.6; white-space: pre; position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%; box-sizing: border-box;
+      outline: none; border: none;
     }
 
     #code { z-index: 2; background: transparent; color: transparent; caret-color: #333; resize: none; }
@@ -84,70 +54,56 @@
 
     .controls { margin: 15px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     
-    button { 
-      padding: 8px 14px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; 
-      background: white; font-size: 13px; font-weight: 500; transition: all 0.2s;
-    }
-    button:hover { background: #f0f0f0; }
+    button { padding: 8px 14px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 13px; transition: 0.2s; }
+    #runBtn { background: var(--accent-green); color: white; border-color: #218838; font-weight: bold; }
 
-    #runBtn { background: var(--accent-green); color: white; border-color: #218838; }
-    #runBtn:hover { background: #218838; }
-    #runBtn:disabled { background: #94d3a2; cursor: wait; }
+    /* Layout for Turtle + Console */
+    .output-area { display: flex; gap: 10px; margin-top: 10px; height: 350px; }
     
-    .btn-visual { background: #fff; border-color: var(--accent-blue); color: var(--accent-blue); }
-    body.visual-mode .btn-visual { background: var(--accent-blue); color: white; }
-
-    .shortcut-hint { font-size: 11px; color: #888; margin-left: 2px; }
-    .spacer { flex-grow: 1; }
-
-    /* Console Styles */
-    pre#output { 
-      background: #1e1e1e; color: #f0f0f0; padding: 15px; border-radius: 6px; 
-      min-height: 120px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace;
-      border: 1px solid #333; line-height: 1.4; transition: all 0.3s ease;
+    #turtle-container { 
+      flex: 1; background: white; border: 1px solid #ccc; border-radius: 6px; 
+      position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
     }
 
-    body.visual-mode pre#output {
-      max-height: 600px;
-      min-height: 400px;
-      font-size: 18px; /* Larger text for presentation */
-      border: 3px solid var(--accent-blue);
+    pre#output { 
+      width: 300px; background: #1e1e1e; color: #f0f0f0; padding: 15px; 
+      border-radius: 6px; margin: 0; overflow-y: auto; font-family: monospace;
     }
   </style>
 </head>
 <body>
 
-<h2 id="title">Python Editor</h2>
+<h2>Python Editor</h2>
 
 <div class="editor-container">
   <div id="line-numbers"></div>
   <div class="editor-wrapper">
     <div id="highlighter"></div>
-    <textarea id="code" spellcheck="false" wrap="off">print("--- WELCOME TO MY GAME ---")
-name = input("What is your name? ")
-print("Hello " + name + "!")
-print("Starting the adventure...")</textarea>
+    <textarea id="code" spellcheck="false" wrap="off">import turtle
+
+t = turtle.Turtle()
+t.color("orange")
+
+for i in range(4):
+    t.forward(100)
+    t.left(90)
+</textarea>
   </div>
 </div>
 
 <div class="controls">
   <button id="runBtn" onclick="runCode()" disabled>Loading...</button>
-  <button id="stopBtn" onclick="resetEngine()">Stop</button>
-  <button onclick="toggleVisualMode()" class="btn-visual" id="visBtn">Visual Mode: OFF</button>
-  <span class="shortcut-hint">(Ctrl+Enter)</span>
-  
-  <div class="spacer"></div>
-  
-  <button onclick="shareCode()" style="color: var(--accent-purple);">Share</button>
-  <input type="file" id="fileInput" hidden accept=".py" onchange="handleFileUpload(event)">
-  <button onclick="document.getElementById('fileInput').click()">Upload</button>
+  <button onclick="resetEngine()">Stop</button>
+  <div style="flex-grow: 1;"></div>
   <button onclick="downloadCode()">Download</button>
   <button onclick="copyCode()">Copy</button>
   <button onclick="clearEditor()" style="color: #888;">Clear</button>
 </div>
 
-<h3>Console:</h3>
-<pre id="output">Starting Python engine...</pre>
+<div class="output-area">
+  <div id="turtle-container"></div>
+  <pre id="output">Starting engine...</pre>
+</div>
 
 <script>
 let pyodide;
@@ -157,7 +113,7 @@ const lineNumbers = document.getElementById("line-numbers");
 const output = document.getElementById("output");
 const runBtn = document.getElementById("runBtn");
 
-// --- 1. HIGHLIGHTER ---
+// --- HIGHLIGHTER & SYNC ---
 function applyHighlight(text) {
     let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const patterns = [
@@ -186,18 +142,15 @@ function applyHighlight(text) {
     return parts.map(p => p.text).join("");
 }
 
-// --- 2. SYNC & LINE NUMBERS ---
 function updateEditor() {
-    const val = codeArea.value;
-    highlighter.innerHTML = applyHighlight(val) + "\n";
-    const lines = val.split('\n');
-    const displayCount = Math.max(lines.length, 20);
+    highlighter.innerHTML = applyHighlight(codeArea.value) + "\n";
+    const lines = codeArea.value.split('\n');
     let numStr = '';
-    for (let i = 1; i <= displayCount; i++) {
+    for (let i = 1; i <= Math.max(lines.length, 18); i++) {
         numStr += (i > lines.length) ? `<span style="opacity:0.2">${i}</span><br>` : `${i}<br>`;
     }
     lineNumbers.innerHTML = numStr;
-    localStorage.setItem('pyEditor_alpha3', val);
+    localStorage.setItem('pyEditor_alpha3', codeArea.value);
 }
 
 codeArea.addEventListener('scroll', () => {
@@ -206,116 +159,71 @@ codeArea.addEventListener('scroll', () => {
 });
 codeArea.addEventListener('input', updateEditor);
 
-// --- 3. KEYBOARD ---
-const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
-codeArea.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runCode(); return; }
-    const s = this.selectionStart, e_idx = this.selectionEnd, v = this.value;
-    if (pairs[e.key]) {
-        e.preventDefault();
-        this.value = v.substring(0, s) + e.key + pairs[e.key] + v.substring(e_idx);
-        this.selectionStart = this.selectionEnd = s + 1;
-        updateEditor();
-    }
-    if (e.key === 'Tab') {
-        e.preventDefault();
-        this.value = v.substring(0, s) + "    " + v.substring(e_idx);
-        this.selectionStart = this.selectionEnd = s + 4;
-        updateEditor();
-    }
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        const lineStart = v.lastIndexOf("\n", s - 1) + 1;
-        const currentLine = v.substring(lineStart, s);
-        let indent = currentLine.match(/^\s*/)[0];
-        if (currentLine.trimEnd().endsWith(":")) indent += "    ";
-        this.value = v.substring(0, s) + "\n" + indent + v.substring(e_idx);
-        this.selectionStart = this.selectionEnd = s + 1 + indent.length;
-        updateEditor();
-    }
-});
-
-// --- 4. ENGINE ---
+// --- PYODIDE & TURTLE SETUP ---
 async function setupPyodide() {
-    runBtn.disabled = true; runBtn.textContent = "Loading...";
+    runBtn.disabled = true;
     try {
         pyodide = await loadPyodide();
+        // Load the micropip package manager to install the turtle library
+        await pyodide.loadPackage("micropip");
+        const micropip = pyodide.pyimport("micropip");
+        await micropip.install("pyodide-turtle"); 
+
         window.update_output = (t) => { output.textContent += t; output.scrollTop = output.scrollHeight; };
+        
         await pyodide.runPythonAsync(`
-import sys, builtins, js
-def reset_streams():
-    class Stream:
-        def write(self, s): js.update_output(s)
-        def flush(self): pass
-    sys.stdout = sys.stderr = Stream()
-reset_streams()
-builtins.input = lambda msg="": js.prompt(msg)
+import sys, js
+from pyodide_turtle import TurtleScreen
+
+# Setup Output Redirect
+class Stream:
+    def write(self, s): js.update_output(s)
+    def flush(self): pass
+sys.stdout = sys.stderr = Stream()
+
+# Setup Turtle to use our Div
+def init_turtle():
+    screen = TurtleScreen(js.document.getElementById("turtle-container"))
+    screen.setup(400, 350)
+    return screen
+
+screen = init_turtle()
         `);
-        runBtn.disabled = false; runBtn.textContent = "Run";
-        output.textContent = "Python Ready.\n";
+        runBtn.disabled = false;
+        runBtn.textContent = "Run";
+        output.textContent = "Python + Turtle Ready.\n";
     } catch (err) { output.textContent = "Error: " + err; }
 }
 
 async function runCode() {
-    if (runBtn.disabled) return;
     output.textContent = "";
-    await pyodide.runPythonAsync("reset_streams()");
-    try { await pyodide.runPythonAsync(codeArea.value); } 
-    catch (err) { output.textContent += "\n" + err; }
+    document.getElementById("turtle-container").innerHTML = ""; // Clear old canvas
+    await pyodide.runPythonAsync("screen = init_turtle()"); // Re-init canvas
+    try {
+        await pyodide.runPythonAsync(codeArea.value);
+    } catch (err) { output.textContent += "\n" + err; }
 }
 
-function resetEngine() {
-    if(confirm("Restart Python?")) { output.textContent = "Restarting..."; setupPyodide(); }
-}
-
-// --- 5. UI MODES & UTILS ---
-function toggleVisualMode() {
-    document.body.classList.toggle('visual-mode');
-    const isVis = document.body.classList.contains('visual-mode');
-    document.getElementById('visBtn').innerText = isVis ? "Visual Mode: ON" : "Visual Mode: OFF";
-    document.getElementById('title').innerText = isVis ? "Python Program" : "Python Editor";
-}
-
-function shareCode() {
-    const encoded = btoa(unescape(encodeURIComponent(codeArea.value)));
-    const url = window.location.origin + window.location.pathname + "?code=" + encoded;
-    navigator.clipboard.writeText(url);
-    alert("Share link copied!");
-}
-
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => { codeArea.value = e.target.result; updateEditor(); event.target.value = ''; };
-    reader.readAsText(file);
+// --- UTILS ---
+function downloadCode() {
+    const blob = new Blob([codeArea.value], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'turtle_art.py';
+    a.click();
 }
 
 function copyCode() {
     navigator.clipboard.writeText(codeArea.value);
-    const b = event.target; b.innerText = "✓"; setTimeout(() => b.innerText = "Copy", 1000);
 }
 
-function downloadCode() {
-    let name = prompt("Filename:", "script.py");
-    if (!name) return;
-    if (!name.endsWith(".py")) name += ".py";
-    const blob = new Blob([codeArea.value], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = name; a.click();
+function clearEditor() {
+    if(confirm("Clear code?")) { codeArea.value = ""; updateEditor(); }
 }
 
-function clearEditor() { if(confirm("Clear code?")) { codeArea.value = ""; updateEditor(); } }
+function resetEngine() { location.reload(); }
 
 window.onload = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const sharedCode = urlParams.get('code');
-    if (sharedCode) {
-        try { codeArea.value = decodeURIComponent(escape(atob(sharedCode))); } catch (e) {}
-    } else {
-        const saved = localStorage.getItem('pyEditor_alpha3');
-        if (saved) codeArea.value = saved;
-    }
     updateEditor();
     setupPyodide();
 };
