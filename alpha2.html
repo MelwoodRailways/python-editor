@@ -18,11 +18,13 @@
       --accent-green: #28a745;
       --accent-red: #cb2431;
       --accent-blue: #0366d6;
+      --accent-purple: #6f42c1;
     }
 
-    body { font-family: -apple-system, system-ui, sans-serif; margin: 20px; background: #eee; color: #333; }
+    body { font-family: -apple-system, system-ui, sans-serif; margin: 20px; background: #eee; color: #333; transition: 0.3s; }
     h2 { margin-top: 0; font-weight: 600; }
 
+    /* The Main Container */
     .editor-container {
       display: flex;
       position: relative;
@@ -33,6 +35,16 @@
       background: var(--bg-color);
       overflow: hidden;
       box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      transition: all 0.3s ease;
+    }
+
+    /* Visual Mode State: Hides the editor */
+    body.visual-mode .editor-container {
+      height: 0;
+      margin: 0;
+      border: none;
+      opacity: 0;
+      pointer-events: none;
     }
 
     #line-numbers {
@@ -49,44 +61,20 @@
       overflow: hidden;
     }
 
-    .editor-wrapper {
-      position: relative;
-      flex-grow: 1;
-      height: 100%;
-    }
+    .editor-wrapper { position: relative; flex-grow: 1; height: 100%; }
 
     #code, #highlighter {
-      margin: 0;
-      padding: 15px;
+      margin: 0; padding: 15px;
       font-family: 'Fira Code', 'Cascadia Code', 'Courier New', monospace;
-      font-size: 14px;
-      line-height: 1.6;
-      white-space: pre;
-      word-wrap: normal;
-      overflow-x: auto;
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      box-sizing: border-box;
-      outline: none;
-      border: none;
+      font-size: 14px; line-height: 1.6;
+      white-space: pre; word-wrap: normal;
+      overflow-x: auto; position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      box-sizing: border-box; outline: none; border: none;
     }
 
-    #code {
-      z-index: 2;
-      background: transparent;
-      color: transparent;
-      caret-color: #333;
-      resize: none;
-    }
-
-    #highlighter {
-      z-index: 1;
-      color: var(--text-color);
-      pointer-events: none;
-    }
+    #code { z-index: 2; background: transparent; color: transparent; caret-color: #333; resize: none; }
+    #highlighter { z-index: 1; color: var(--text-color); pointer-events: none; }
 
     /* Syntax Highlighting */
     .hl-keyword { color: var(--keyword); font-weight: bold; }
@@ -94,66 +82,71 @@
     .hl-comment { color: var(--comment); font-style: italic; }
     .hl-builtin { color: var(--builtin); }
 
-    .controls { margin: 15px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .controls { margin: 15px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     
     button { 
-      padding: 8px 16px; 
-      cursor: pointer; 
-      border-radius: 4px; 
-      border: 1px solid #ccc; 
-      background: white; 
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.2s;
+      padding: 8px 14px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; 
+      background: white; font-size: 13px; font-weight: 500; transition: all 0.2s;
     }
-
     button:hover { background: #f0f0f0; }
 
     #runBtn { background: var(--accent-green); color: white; border-color: #218838; }
     #runBtn:hover { background: #218838; }
     #runBtn:disabled { background: #94d3a2; cursor: wait; }
-
-    #stopBtn { color: var(--accent-red); border-color: #d1d1d1; }
     
-    .btn-upload { color: var(--accent-blue); }
+    .btn-visual { background: #fff; border-color: var(--accent-blue); color: var(--accent-blue); }
+    body.visual-mode .btn-visual { background: var(--accent-blue); color: white; }
 
-    .shortcut-hint { font-size: 12px; color: #888; margin-left: 2px; }
+    .shortcut-hint { font-size: 11px; color: #888; margin-left: 2px; }
     .spacer { flex-grow: 1; }
 
+    /* Console Styles */
     pre#output { 
       background: #1e1e1e; color: #f0f0f0; padding: 15px; border-radius: 6px; 
       min-height: 120px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace;
-      border: 1px solid #333; line-height: 1.4;
+      border: 1px solid #333; line-height: 1.4; transition: all 0.3s ease;
+    }
+
+    body.visual-mode pre#output {
+      max-height: 600px;
+      min-height: 400px;
+      font-size: 18px; /* Larger text for presentation */
+      border: 3px solid var(--accent-blue);
     }
   </style>
 </head>
 <body>
 
-<h2>Python Editor</h2>
+<h2 id="title">Python Editor</h2>
 
 <div class="editor-container">
   <div id="line-numbers"></div>
   <div class="editor-wrapper">
     <div id="highlighter"></div>
-    <textarea id="code" spellcheck="false" wrap="off">print("Hello world!")</textarea>
+    <textarea id="code" spellcheck="false" wrap="off">print("--- WELCOME TO MY GAME ---")
+name = input("What is your name? ")
+print("Hello " + name + "!")
+print("Starting the adventure...")</textarea>
   </div>
 </div>
 
 <div class="controls">
   <button id="runBtn" onclick="runCode()" disabled>Loading...</button>
-  <button id="stopBtn" onclick="resetEngine()">Stop / Reset</button>
-  <span class="shortcut-hint">(Ctrl + Enter)</span>
+  <button id="stopBtn" onclick="resetEngine()">Stop</button>
+  <button onclick="toggleVisualMode()" class="btn-visual" id="visBtn">Visual Mode: OFF</button>
+  <span class="shortcut-hint">(Ctrl+Enter)</span>
   
   <div class="spacer"></div>
   
-  <input type="file" id="fileInput" hidden accept=".py,.txt" onchange="handleFileUpload(event)">
-  <button onclick="document.getElementById('fileInput').click()" class="btn-upload">Upload</button>
-  <button onclick="copyCode()">Copy</button>
+  <button onclick="shareCode()" style="color: var(--accent-purple);">Share</button>
+  <input type="file" id="fileInput" hidden accept=".py" onchange="handleFileUpload(event)">
+  <button onclick="document.getElementById('fileInput').click()">Upload</button>
   <button onclick="downloadCode()">Download</button>
+  <button onclick="copyCode()">Copy</button>
   <button onclick="clearEditor()" style="color: #888;">Clear</button>
 </div>
 
-<h3>Output:</h3>
+<h3>Console:</h3>
 <pre id="output">Starting Python engine...</pre>
 
 <script>
@@ -193,11 +186,10 @@ function applyHighlight(text) {
     return parts.map(p => p.text).join("");
 }
 
-// --- 2. EDITOR SYNC ---
+// --- 2. SYNC & LINE NUMBERS ---
 function updateEditor() {
     const val = codeArea.value;
     highlighter.innerHTML = applyHighlight(val) + "\n";
-    
     const lines = val.split('\n');
     const displayCount = Math.max(lines.length, 20);
     let numStr = '';
@@ -212,19 +204,12 @@ codeArea.addEventListener('scroll', () => {
     highlighter.scrollTop = lineNumbers.scrollTop = codeArea.scrollTop;
     highlighter.scrollLeft = codeArea.scrollLeft;
 });
-
 codeArea.addEventListener('input', updateEditor);
 
-// --- 3. KEYBOARD SHORTCUTS ---
+// --- 3. KEYBOARD ---
 const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
-
 codeArea.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        runCode();
-        return;
-    }
-
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runCode(); return; }
     const s = this.selectionStart, e_idx = this.selectionEnd, v = this.value;
     if (pairs[e.key]) {
         e.preventDefault();
@@ -250,16 +235,12 @@ codeArea.addEventListener('keydown', function(e) {
     }
 });
 
-// --- 4. ENGINE LOGIC ---
+// --- 4. ENGINE ---
 async function setupPyodide() {
-    runBtn.disabled = true;
-    runBtn.textContent = "Loading...";
+    runBtn.disabled = true; runBtn.textContent = "Loading...";
     try {
         pyodide = await loadPyodide();
-        window.update_output = (t) => {
-            output.textContent += t;
-            output.scrollTop = output.scrollHeight;
-        };
+        window.update_output = (t) => { output.textContent += t; output.scrollTop = output.scrollHeight; };
         await pyodide.runPythonAsync(`
 import sys, builtins, js
 def reset_streams():
@@ -270,75 +251,71 @@ def reset_streams():
 reset_streams()
 builtins.input = lambda msg="": js.prompt(msg)
         `);
-        runBtn.disabled = false;
-        runBtn.textContent = "Run";
+        runBtn.disabled = false; runBtn.textContent = "Run";
         output.textContent = "Python Ready.\n";
-    } catch (err) {
-        output.textContent = "Error loading engine: " + err;
-    }
+    } catch (err) { output.textContent = "Error: " + err; }
 }
 
 async function runCode() {
     if (runBtn.disabled) return;
     output.textContent = "";
     await pyodide.runPythonAsync("reset_streams()");
-    try {
-        await pyodide.runPythonAsync(codeArea.value);
-    } catch (err) {
-        output.textContent += "\n" + err;
-    }
+    try { await pyodide.runPythonAsync(codeArea.value); } 
+    catch (err) { output.textContent += "\n" + err; }
 }
 
 function resetEngine() {
-    if(confirm("Restart Python engine? This stops current code but clears variables.")) {
-        output.textContent = "Restarting engine...";
-        setupPyodide();
-    }
+    if(confirm("Restart Python?")) { output.textContent = "Restarting..."; setupPyodide(); }
 }
 
-// --- 5. UTILS ---
+// --- 5. UI MODES & UTILS ---
+function toggleVisualMode() {
+    document.body.classList.toggle('visual-mode');
+    const isVis = document.body.classList.contains('visual-mode');
+    document.getElementById('visBtn').innerText = isVis ? "Visual Mode: ON" : "Visual Mode: OFF";
+    document.getElementById('title').innerText = isVis ? "Python Program" : "Python Editor";
+}
+
+function shareCode() {
+    const encoded = btoa(unescape(encodeURIComponent(codeArea.value)));
+    const url = window.location.origin + window.location.pathname + "?code=" + encoded;
+    navigator.clipboard.writeText(url);
+    alert("Share link copied!");
+}
+
 function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
-        codeArea.value = e.target.result;
-        updateEditor();
-        // Reset file input so same file can be uploaded again if needed
-        event.target.value = '';
-    };
+    reader.onload = (e) => { codeArea.value = e.target.result; updateEditor(); event.target.value = ''; };
     reader.readAsText(file);
 }
 
 function copyCode() {
     navigator.clipboard.writeText(codeArea.value);
-    const b = event.target;
-    const oldText = b.innerText;
-    b.innerText = "✓ Copied!";
-    setTimeout(() => b.innerText = oldText, 1500);
+    const b = event.target; b.innerText = "✓"; setTimeout(() => b.innerText = "Copy", 1000);
 }
 
 function downloadCode() {
-    let filename = prompt("Filename:", "script.py");
-    if (filename === null) return;
-    if (!filename.endsWith(".py")) filename += ".py";
+    let name = prompt("Filename:", "script.py");
+    if (!name) return;
+    if (!name.endsWith(".py")) name += ".py";
     const blob = new Blob([codeArea.value], { type: 'text/plain' });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    a.click();
+    a.href = URL.createObjectURL(blob); a.download = name; a.click();
 }
 
-function clearEditor() {
-    if(confirm("Delete all code?")) {
-        codeArea.value = "";
-        updateEditor();
-    }
-}
+function clearEditor() { if(confirm("Clear code?")) { codeArea.value = ""; updateEditor(); } }
 
 window.onload = () => {
-    const saved = localStorage.getItem('pyEditor_alpha3');
-    if (saved) codeArea.value = saved;
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedCode = urlParams.get('code');
+    if (sharedCode) {
+        try { codeArea.value = decodeURIComponent(escape(atob(sharedCode))); } catch (e) {}
+    } else {
+        const saved = localStorage.getItem('pyEditor_alpha3');
+        if (saved) codeArea.value = saved;
+    }
     updateEditor();
     setupPyodide();
 };
