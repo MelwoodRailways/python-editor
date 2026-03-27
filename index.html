@@ -1,20 +1,95 @@
 <h1>Welcome to this Python editor</h1>
 <p>Your code will not save. Remember to store it somewhere else!</p>
 
-<!-- Version selector -->
-<select id="versionSelect">
-  <!-- Versions will be added here -->
-</select>
+<div class="card">
+  <label for="versionSelect">Choose version</label>
 
-<br><br>
+  <select id="versionSelect"></select>
 
-<!-- Launch button -->
-<button onclick="launchEditor()">
-  Launch (<span id="selectedVersion">latest</span>)
-</button>
+  <button onclick="launchEditor()">
+    🚀 Launch <span id="selectedVersion">latest</span>
+  </button>
+</div>
+
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 50px;
+    margin: 0;
+    background: linear-gradient(135deg, #eef2f7, #d9e4f5);
+    color: #222;
+  }
+
+  h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+  }
+
+  p {
+    font-size: 1.1em;
+    margin-bottom: 30px;
+    color: #555;
+  }
+
+  .card {
+    display: inline-block;
+    padding: 30px;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  }
+
+  label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: bold;
+  }
+
+  select {
+    padding: 12px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    width: 220px;
+    margin-bottom: 20px;
+    cursor: pointer;
+    transition: border 0.2s;
+  }
+
+  select:focus {
+    outline: none;
+    border-color: #007bff;
+  }
+
+  button {
+    display: block;
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+  }
+
+  #selectedVersion {
+    font-weight: bold;
+    background: rgba(255,255,255,0.2);
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-left: 5px;
+  }
+</style>
 
 <script>
-  // List of versions (easy to expand)
   const versions = [
     { name: "Latest - v1.0", file: "editor.html" },
     { name: "Beta - v2.0", file: "beta-editor.html" },
@@ -24,7 +99,6 @@
   const select = document.getElementById("versionSelect");
   const label = document.getElementById("selectedVersion");
 
-  // Populate dropdown
   versions.forEach((version, index) => {
     const option = document.createElement("option");
     option.value = index;
@@ -32,18 +106,15 @@
     select.appendChild(option);
   });
 
-  // Update button text when selection changes
   select.addEventListener("change", () => {
     const selected = versions[select.value];
     label.textContent = selected.name;
   });
 
-  // Launch selected version
   function launchEditor() {
     const selected = versions[select.value];
     window.location.href = selected.file;
   }
 
-  // Set default label
   label.textContent = versions[0].name;
 </script>
