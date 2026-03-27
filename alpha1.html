@@ -6,155 +6,251 @@
   <title>Python Editor</title>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
   <style>
-    body { font-family: monospace; margin: 20px; }
-    textarea { width: 100%; height: 300px; font-family: monospace; font-size: 16px; }
-    pre { background: #f0f0f0; padding: 10px; min-height: 150px; overflow-y: auto; }
-    button { margin-top: 10px; padding: 5px 15px; font-size: 16px; cursor: pointer; }
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #24292e;
+      --keyword: #d73a49;
+      --string: #032f62; 
+      --comment: #6a737d;
+      --builtin: #005cc5;
+      --line-num-bg: #f8f8f8;
+      --line-num-text: #999;
+      --accent-green: #28a745;
+      --accent-red: #cb2431;
+    }
+
+    body { font-family: -apple-system, sans-serif; margin: 20px; background: #eee; }
+    h2 { margin-top: 0; font-weight: 600; }
+
+    .editor-container {
+      display: flex; position: relative; width: 100%; height: 500px;
+      border: 1px solid #ddd; border-radius: 6px; background: var(--bg-color);
+      overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+
+    #line-numbers {
+      width: 45px; padding: 15px 5px; background: var(--line-num-bg);
+      color: var(--line-num-text); font-family: 'Fira Code', monospace;
+      font-size: 14px; line-height: 1.6; text-align: right; border-right: 1px solid #ddd;
+      user-select: none; white-space: pre;
+    }
+
+    .editor-wrapper { position: relative; flex-grow: 1; height: 100%; }
+
+    #code, #highlighter {
+      margin: 0; padding: 15px; font-family: 'Fira Code', monospace;
+      font-size: 14px; line-height: 1.6; white-space: pre; position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%; box-sizing: border-box;
+      outline: none; border: none; overflow: auto; tab-size: 2;
+    }
+
+    #code { z-index: 2; background: transparent; color: transparent; caret-color: #333; resize: none; }
+    #highlighter { z-index: 1; color: var(--text-color); pointer-events: none; }
+
+    /* Clean Syntax Coloring */
+    .hl-kw { color: var(--keyword); font-weight: bold; }
+    .hl-st { color: var(--string); }
+    .hl-cm { color: var(--comment); font-style: italic; }
+    .hl-bi { color: var(--builtin); }
+
+    .controls { margin: 15px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    button { padding: 8px 16px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; background: white; font-size: 14px; font-weight: 500; transition: 0.1s; }
+    button:active { transform: translateY(1px); }
+    
+    #runBtn { background: var(--accent-green); color: white; border-color: #218838; }
+    #stopBtn { color: var(--accent-red); }
+    
+    pre#output { 
+      background: #1e1e1e; color: #f0f0f0; padding: 15px; border-radius: 6px; 
+      min-height: 150px; max-height: 300px; overflow-y: auto; font-family: 'Courier New', monospace;
+      border: 1px solid #333; line-height: 1.4;
+    }
   </style>
 </head>
 <body>
 
 <h2>Python Editor</h2>
 
-<textarea id="code">print("Hello world!")</textarea>
-<br>
-<button id="runBtn" onclick="runCode()" disabled>Run</button>
+<div class="editor-container">
+  <div id="line-numbers"></div>
+  <div class="editor-wrapper">
+    <div id="highlighter"></div>
+    <textarea id="code" spellcheck="false" wrap="off"># Try auto-close: type (test) or "hello"
+import math
+
+def circle_stats(r):
+  area = math.pi * (r ** 2)
+  return area
+
+radius = 5
+print(f"Area is: {circle_stats(radius)}")</textarea>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="runBtn" onclick="runCode()" disabled>Loading...</button>
+  <button id="stopBtn" onclick="resetEngine()">Stop / Reset</button>
+  <div style="flex-grow: 1;"></div>
+  <input type="file" id="fileInput" hidden accept=".py,.txt" onchange="handleFileUpload(event)">
+  <button onclick="document.getElementById('fileInput').click()">Upload</button>
+  <button onclick="copyCode()">Copy</button>
+  <button onclick="downloadCode()">Download</button>
+  <button onclick="clearEditor()" style="color: #888;">Clear</button>
+</div>
 
 <h3>Output:</h3>
-<pre id="output"></pre>
+<pre id="output">Initializing Python...</pre>
 
 <script>
 let pyodide;
+const codeArea = document.getElementById("code");
+const highlighter = document.getElementById("highlighter");
+const lineNumbers = document.getElementById("line-numbers");
+const output = document.getElementById("output");
+const runBtn = document.getElementById("runBtn");
 
-// Load Pyodide and setup restricted environment
-async function loadPyodideAndPackages() {
-  pyodide = await loadPyodide();
-  console.log("Pyodide loaded!");
-  pyodide.globals.set("input", (msg) => prompt(msg));
+// --- 1. KEYBOARD LOGIC (AUTO-PAIR + OVERTYPE) ---
+codeArea.addEventListener('keydown', function(e) {
+  const s = this.selectionStart, e_idx = this.selectionEnd, v = this.value;
+  const pairs = { '(': ')', '"': '"', "'": "'", '[': ']', '{': '}' };
+  const closingChars = [')', '"', "'", ']', '}'];
 
-  // Setup stdout streaming, restricted imports, and input()
-  await pyodide.runPythonAsync(`
-import sys
-import builtins
-import js
-
-# Allowed standard library modules
-ALLOWED_MODULES = {
-    "asyncio", "math", "time", "sys", "random",
-    "itertools", "functools", "collections", "re"
-}
-
-# Function to create a fresh stdout/stderr stream
-def reset_streams():
-    class Stream:
-        def __init__(self):
-            self.content = ""
-        def write(self, s):
-            self.content += s
-            js.update_output(self.content)
-        def flush(self):
-            pass
-    sys.stdout = Stream()
-    sys.stderr = Stream()
-
-reset_streams()
-
-# Block imports not in whitelist
-_real_import = builtins.__import__
-def restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
-    if name not in ALLOWED_MODULES:
-        raise ImportError(f"Import of '{name}' is blocked. Only standard library modules are allowed.")
-    return _real_import(name, globals, locals, fromlist, level)
-
-builtins.__import__ = restricted_import
-
-# input() via browser prompt
-def browser_input(prompt_text=""):
-    return js.prompt(prompt_text)
-__builtins__.input = browser_input
-`);
-
-  // Enable Run button
-  document.getElementById("runBtn").disabled = false;
-}
-
-// JS function to stream output
-window.update_output = (text) => {
-  const output = document.getElementById("output");
-  output.textContent = text;
-  output.scrollTop = output.scrollHeight;
-};
-
-// Run code safely
-async function runCode() {
-  const output = document.getElementById("output");
-  if (!pyodide) {
-    output.textContent = "Python environment is still loading. Please wait...";
+  // Overtyping (Auto-close)
+  if (closingChars.includes(e.key) && v[s] === e.key && s === e_idx) {
+    e.preventDefault();
+    this.selectionStart = this.selectionEnd = s + 1;
     return;
   }
 
-  // Clear previous output and reset Python stdout/stderr
-  output.textContent = "";
-  await pyodide.runPythonAsync("reset_streams()");
-
-  const code = document.getElementById("code").value;
-
-  try {
-    await pyodide.runPythonAsync(code);
-  } catch (err) {
-    output.textContent += "\n" + err;
+  // Auto-pairing
+  if (pairs[e.key]) {
+    e.preventDefault();
+    this.value = v.substring(0, s) + e.key + pairs[e.key] + v.substring(e_idx);
+    this.selectionStart = this.selectionEnd = s + 1;
+    updateEditor();
+    return;
   }
+
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    this.value = v.substring(0, s) + "  " + v.substring(e_idx);
+    this.selectionStart = this.selectionEnd = s + 2;
+    updateEditor();
+  }
+
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const lineStart = v.lastIndexOf("\n", s - 1) + 1;
+    const currentLine = v.substring(lineStart, s);
+    let indent = currentLine.match(/^\s*/)[0];
+    if (currentLine.trimEnd().endsWith(":")) indent += "  ";
+    
+    const ins = "\n" + indent;
+    this.value = v.substring(0, s) + ins + v.substring(e_idx);
+    this.selectionStart = this.selectionEnd = s + ins.length;
+    updateEditor();
+  }
+});
+
+// --- 2. HIGHLIGHTER & LINE SYNC ---
+function updateEditor() {
+  const val = codeArea.value;
+  let html = val.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  
+  const rules = [
+    { r: /#.*$/gm, c: 'hl-cm' },
+    { r: /(['"])(?:(?=(\\?))\2.)*?\1/g, c: 'hl-st' },
+    { r: /\b(def|class|if|else|elif|for|while|return|import|from|try|except|as|with|in|is|not|and|or|lambda|pass|break|continue)\b/g, c: 'hl-kw' },
+    { r: /\b(print|input|len|range|str|int|float|list|dict|set|type|sum|max|min)\b/g, c: 'hl-bi' }
+  ];
+
+  rules.forEach(rule => {
+    html = html.replace(rule.r, `<span class="${rule.c}">$&</span>`);
+  });
+
+  highlighter.innerHTML = html + "\n";
+  
+  // Line Numbers (Fills screen)
+  const lines = val.split('\n');
+  const count = Math.max(lines.length, 25);
+  let nums = '';
+  for(let i=1; i<=count; i++) {
+    nums += (i > lines.length ? `<span style="opacity:0.15">${i}</span>\n` : `${i}\n`);
+  }
+  lineNumbers.innerHTML = nums;
+
+  localStorage.setItem('pyStudent_A48', val);
 }
 
-loadPyodideAndPackages();
-
-// ------------------------
-// Auto-indent + Tab handling
-// ------------------------
-const codeArea = document.getElementById("code");
-
-codeArea.addEventListener("keydown", function(e) {
-  const start = this.selectionStart;
-  const end = this.selectionEnd;
-  const value = this.value;
-
-  // Tab inserts tab character
-  if (e.key === "Tab") {
-    e.preventDefault();
-    this.value = value.substring(0, start) + "\t" + value.substring(end);
-    this.selectionStart = this.selectionEnd = start + 1;
-  }
-
-  // Enter auto-indent
-  if (e.key === "Enter") {
-    e.preventDefault();
-
-    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-    const currentLine = value.substring(lineStart, start);
-
-    // Copy existing indentation
-    let indent = currentLine.match(/^\s*/)[0];
-
-    // Extra indent if line ends with ':'
-    if (currentLine.trimEnd().endsWith(":")) {
-      indent += "\t"; // or spaces: indent += "    ";
-    }
-
-    this.value = value.substring(0, start) + "\n" + indent + value.substring(end);
-    this.selectionStart = this.selectionEnd = start + 1 + indent.length;
-  }
+codeArea.addEventListener('input', updateEditor);
+codeArea.addEventListener('scroll', () => {
+  highlighter.scrollTop = lineNumbers.scrollTop = codeArea.scrollTop;
+  highlighter.scrollLeft = codeArea.scrollLeft;
 });
-  window.addEventListener("beforeunload", function (e) {
-    const warningMessage = "⚠️ Your progress will NOT be saved! Make sure to copy your code elsewhere.";
-    
-    // Standard way to trigger the browser warning
-    e.preventDefault();
-    e.returnValue = warningMessage;
 
-    // For older browsers
-    return warningMessage;
-});
+// --- 3. ENGINE & SECURITY ---
+async function setupPyodide() {
+  runBtn.disabled = true;
+  try {
+    pyodide = await loadPyodide();
+    window.update_out = (t) => { 
+      output.textContent += t; 
+      output.scrollTop = output.scrollHeight; 
+    };
+    await pyodide.runPythonAsync(`
+import sys, builtins, js, importlib
+def reset_streams():
+    class S:
+        def write(self, s): js.update_out(s)
+        def flush(self): pass
+    sys.stdout = sys.stderr = S()
+reset_streams()
+builtins.input = lambda m="": js.prompt(m)
+
+orig = builtins.__import__
+def guard(n, g=None, l=None, f=(), lev=0):
+    base = n.split('.')[0]
+    if base not in sys.builtin_module_names and base not in sys.modules:
+        if not importlib.util.find_spec(base):
+            raise ImportError(f"\\n[!] Blocked: '{n}' is external.")
+    return orig(n, g, l, f, lev)
+builtins.__import__ = guard
+    `);
+    runBtn.disabled = false;
+    runBtn.textContent = "Run";
+    output.textContent = "Python Ready.\n";
+  } catch (e) { output.textContent = "Error: " + e; }
+}
+
+async function runCode() {
+  output.textContent = "";
+  await pyodide.runPythonAsync("reset_streams()");
+  try { await pyodide.runPythonAsync(codeArea.value); } 
+  catch (e) { output.textContent += "\n" + e; }
+}
+
+function resetEngine() { if(confirm("Restart Engine?")) setupPyodide(); }
+function copyCode() { navigator.clipboard.writeText(codeArea.value); alert("Copied!"); }
+function clearEditor() { if(confirm("Clear Code?")) { codeArea.value = ""; updateEditor(); } }
+function downloadCode() {
+  const blob = new Blob([codeArea.value], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'script.py'; a.click();
+}
+function handleFileUpload(e) {
+  const f = e.target.files[0];
+  const r = new FileReader();
+  r.onload = (ev) => { codeArea.value = ev.target.result; updateEditor(); };
+  r.readAsText(f);
+}
+
+window.onload = () => {
+  const s = localStorage.getItem('pyStudent_A48');
+  if (s) codeArea.value = s;
+  updateEditor();
+  setupPyodide();
+};
 </script>
-
 </body>
 </html>
