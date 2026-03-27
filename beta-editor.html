@@ -252,32 +252,35 @@ codeArea.addEventListener('keydown', function(e) {
 
 // --- 4. ENGINE LOGIC ---
 async function setupPyodide() {
-    runBtn.disabled = true;
-    runBtn.textContent = "Loading...";
-    try {
-        pyodide = await loadPyodide();
-        window.update_output = (t) => {
-            output.textContent += t;
-            output.scrollTop = output.scrollHeight;
-        };
-        await pyodide.runPythonAsync(`
-import sys, builtins, js
+  runBtn.disabled = true;
+  try {
+    pyodide = await loadPyodide();
+    window.update_out = (t) => { output.textContent += t; output.scrollTop = output.scrollHeight; };
+    await pyodide.runPythonAsync(`
+import sys, builtins, js, importlib
 def reset_streams():
-    class Stream:
-        def write(self, s): js.update_output(s)
+    class S:
+        def write(self, s): js.update_out(s)
         def flush(self): pass
-    sys.stdout = sys.stderr = Stream()
+    sys.stdout = sys.stderr = S()
 reset_streams()
-builtins.input = lambda msg="": js.prompt(msg)
-        `);
-        runBtn.disabled = false;
-        runBtn.textContent = "Run";
-        output.textContent = "Python Ready.\n";
-    } catch (err) {
-        output.textContent = "Error loading engine: " + err;
-    }
-}
+builtins.input = lambda m="": js.prompt(m)
 
+orig = builtins.__import__
+def guard(n, g=None, l=None, f=(), lev=0):
+    base = n.split('.')[0]
+    if base not in sys.builtin_module_names and base not in sys.modules:
+        if not importlib.util.find_spec(base):
+            raise ImportError(f"\\n[!] Blocked: '{n}' is external.")
+    return orig(n, g, l, f, lev)
+builtins.__import__ = guard
+    `);
+    runBtn.disabled = false;
+    runBtn.textContent = "Run";
+    output.textContent = "Python Ready.\n";
+  } catch (e) { output.textContent = "Error: " + e; }
+}
+  
 async function runCode() {
     if (runBtn.disabled) return;
     output.textContent = "";
