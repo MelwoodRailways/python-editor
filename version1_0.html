@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Python Editor</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+  <style>
+    body { font-family: monospace; margin: 20px; }
+    textarea { width: 100%; height: 300px; font-family: monospace; font-size: 16px; }
+    pre { background: #f0f0f0; padding: 10px; min-height: 150px; overflow-y: auto; }
+    button { margin-top: 10px; padding: 5px 15px; font-size: 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<h2>Python Editor</h2>
+
+<textarea id="code">print("Hello world!")</textarea>
+<br>
+<button id="runBtn" onclick="runCode()" disabled>Run</button>
+
+<h3>Output:</h3>
+<pre id="output"></pre>
+
+<script>
+let pyodide;
+
+// Load Pyodide and setup restricted environment
+async function loadPyodideAndPackages() {
+  pyodide = await loadPyodide();
+  console.log("Pyodide loaded!");
+  pyodide.globals.set("input", (msg) => prompt(msg));
+
+  // Setup stdout streaming, restricted imports, and input()
+  await pyodide.runPythonAsync(`
+import sys
+import builtins
+import js
+
+# Allowed standard library modules
+ALLOWED_MODULES = {
+    "asyncio", "math", "time", "sys", "random",
+    "itertools", "functools", "collections", "re"
+}
+
+# Function to create a fresh stdout/stderr stream
+def reset_streams():
+    class Stream:
+        def __init__(self):
+            self.content = ""
+        def write(self, s):
+            self.content += s
+            js.update_output(self.content)
+        def flush(self):
+            pass
+    sys.stdout = Stream()
+    sys.stderr = Stream()
+
+reset_streams()
+
+# Block imports not in whitelist
+_real_import = builtins.__import__
+def restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
+    if name not in ALLOWED_MODULES:
+        raise ImportError(f"Import of '{name}' is blocked. Only standard library modules are allowed.")
+    return _real_import(name, globals, locals, fromlist, level)
+
+builtins.__import__ = restricted_import
+
+# input() via browser prompt
+def browser_input(prompt_text=""):
+    return js.prompt(prompt_text)
+__builtins__.input = browser_input
+`);
+
+  // Enable Run button
+  document.getElementById("runBtn").disabled = false;
+}
+
+// JS function to stream output
+window.update_output = (text) => {
+  const output = document.getElementById("output");
+  output.textContent = text;
+  output.scrollTop = output.scrollHeight;
+};
+
+// Run code safely
+async function runCode() {
+  const output = document.getElementById("output");
+  if (!pyodide) {
+    output.textContent = "Python environment is still loading. Please wait...";
+    return;
+  }
+
+  // Clear previous output and reset Python stdout/stderr
+  output.textContent = "";
+  await pyodide.runPythonAsync("reset_streams()");
+
+  const code = document.getElementById("code").value;
+
+  try {
+    await pyodide.runPythonAsync(code);
+  } catch (err) {
+    output.textContent += "\n" + err;
+  }
+}
+
+loadPyodideAndPackages();
+
+// ------------------------
+// Auto-indent + Tab handling
+// ------------------------
+const codeArea = document.getElementById("code");
+
+codeArea.addEventListener("keydown", function(e) {
+  const start = this.selectionStart;
+  const end = this.selectionEnd;
+  const value = this.value;
+
+  // Tab inserts tab character
+  if (e.key === "Tab") {
+    e.preventDefault();
+    this.value = value.substring(0, start) + "\t" + value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 1;
+  }
+
+  // Enter auto-indent
+  if (e.key === "Enter") {
+    e.preventDefault();
+
+    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+    const currentLine = value.substring(lineStart, start);
+
+    // Copy existing indentation
+    let indent = currentLine.match(/^\s*/)[0];
+
+    // Extra indent if line ends with ':'
+    if (currentLine.trimEnd().endsWith(":")) {
+      indent += "\t"; // or spaces: indent += "    ";
+    }
+
+    this.value = value.substring(0, start) + "\n" + indent + value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 1 + indent.length;
+  }
+});
+</script>
+
+</body>
+</html>
